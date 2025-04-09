@@ -66,12 +66,3 @@ Key: Authorization
 Value: Bearer <your-token>
 
 Call protected endpoints like /users, /assets, or /orders.
-
-### Project Structure Highlights
-src/main/java/org/ing/
-├── controller       # REST Controllers
-├── entity           # JPA Entities
-├── repository       # Spring Data JPA Repositories
-├── security         # JWT Authentication & Filters
-├── service          # Business Logic
-├── config           # Security & Application Config
