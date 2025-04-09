@@ -23,10 +23,10 @@ The application supports secure authentication using JWT tokens and role-based a
 
 2. **Run the application** as a Spring Boot app:
 
-From your IDE: Right-click IngBrokageProjectApplication.java → Run as → Spring Boot App.
+   From your IDE: Right-click IngBrokageProjectApplication.java → Run as → Spring Boot App.
 
-Or via terminal:
-mvn spring-boot:run
+   Or via terminal:
+   mvn spring-boot:run
 
 3. The server will start on:
    http://localhost:8080
@@ -35,8 +35,7 @@ mvn spring-boot:run
 The following unit test file is used to test the functionality:
 src/test/java/org/ing/test/AuthenticationControllerTest.java
 
-Run this test from your IDE or via terminal:
-mvn test
+Run this test from your IDE or via terminal: mvn test
 
 ### Authentication & Authorization
 
@@ -48,6 +47,7 @@ These endpoints can be accessed without authentication:
 
 **Protected Endpoints**
 All other API endpoints require a valid JWT token in the Authorization header:
+
 Authorization: Bearer <your-token-here>
 
 Tokens are provided in the response of a successful /auth/login request.
@@ -62,7 +62,9 @@ POST /auth/signup – Register a user (use role CUSTOMER or ADMIN)
 POST /auth/login – Login and retrieve your JWT token
 
 Add the token to your Postman headers:
+
 Key: Authorization
+
 Value: Bearer <your-token>
 
 Call protected endpoints like /users, /assets, or /orders.
