@@ -16,19 +16,27 @@ import java.util.Optional;
 
 import org.ing.dto.AssetRequestDto;
 import org.ing.dto.LoginUserDto;
+import org.ing.dto.OrderRequest;
 import org.ing.dto.RegisterUserDto;
 import org.ing.entity.Asset;
+import org.ing.entity.Side;
 import org.ing.entity.User;
 import org.ing.entity.UserRole;
 import org.ing.repository.AssetRepository;
+import org.ing.repository.OrderRepository;
 import org.ing.repository.UserRepository;
 import org.ing.security.JwtService;
+import org.junit.Before;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -40,6 +48,7 @@ import com.jayway.jsonpath.JsonPath;
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT) // Use the full Spring context
 @AutoConfigureMockMvc // This will auto-configure MockMvc to test the controller layer
+@TestMethodOrder(OrderAnnotation.class)
 public class AuthenticationControllerTest {
 
 	@Autowired
@@ -52,15 +61,21 @@ public class AuthenticationControllerTest {
 	private AssetRepository assetRepository;
 
 	@Autowired
+	private OrderRepository orderRepository;
+
+	@Autowired
 	private JwtService jwtService;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-	@Test
-	public void testUserSignUp() throws Exception {
-//		String customer_1 = "{ \"email\": \"jsimith@gmail.com\", \"password\": \"password123\", \"fullName\": \"John Simith\" }";
-//		String admin_1 = "{ \"email\": \"brokagetechsupport@ing.com\", \"password\": \"admin123\", \"fullName\": \"ING Brokage Tech Support\", \"role\": \"ADMIN\" }";
+	@Before
+	public void resetSecurityContext() {
+		SecurityContextHolder.clearContext();
+	}
 
+	@Test
+	@Order(1)
+	public void testUserSignUp() throws Exception {
 		RegisterUserDto customer_1 = new RegisterUserDto("jsimith@gmail.com", "password123", "John Simith");
 		RegisterUserDto customer_2 = new RegisterUserDto("janewatson@gmail.com", "password123", "Jane Watson");
 		RegisterUserDto customer_3 = new RegisterUserDto("emineoymak@gmail.com", "password123", "Emine Oymak");
@@ -69,7 +84,7 @@ public class AuthenticationControllerTest {
 		String customer_2_json = objectMapper.writeValueAsString(customer_2);
 		String customer_3_json = objectMapper.writeValueAsString(customer_3);
 
-		RegisterUserDto admin_1 = new RegisterUserDto("brokagetechsupport@ing.com", "admin123",
+		RegisterUserDto admin_1 = new RegisterUserDto("brokagetechsupport@ing.com", "password123",
 				"ING Brokage Tech Support", UserRole.ADMIN);
 		String admin_1_json = objectMapper.writeValueAsString(admin_1);
 
@@ -123,22 +138,45 @@ public class AuthenticationControllerTest {
 	}
 
 	@Test
+	@Order(2)
 	public void testUserLogin() throws Exception {
-		LoginUserDto userCredentials_1 = new LoginUserDto("jsimith@gmail.com", "password123");
+		LoginUserDto validUser = new LoginUserDto("jsimith@gmail.com", "password123");
+		LoginUserDto invalidUser = new LoginUserDto("xxx@gmail.com", "password123");
 
-		String userCredentials_1_json = objectMapper.writeValueAsString(userCredentials_1);
+		String validUser_json = objectMapper.writeValueAsString(validUser);
+		String invalidUser_json = objectMapper.writeValueAsString(invalidUser);
 
 		// When: sending a POST request to /auth/login to login with a user
-		mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(userCredentials_1_json))
+		mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(validUser_json))
 				// Then: check that the response status is 200 (OK)
 				.andExpect(status().isOk()).andExpect(jsonPath("token").isNotEmpty())
 				.andExpect(jsonPath("$.expiresIn").value(jwtService.getExpirationTime()));
 
+		mockMvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(invalidUser_json))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.title").value("Unauthorized"))
+				.andExpect(jsonPath("$.detail").value("Bad credentials"))
+				.andExpect(jsonPath("$.description").value("The username or password is incorrect"));
 	}
 
 	@Test
-	public void testCreateAssets() throws Exception {
-		LoginUserDto userCredentials = new LoginUserDto("brokagetechsupport@ing.com", "admin123");
+	@Order(3)
+	public void testCreateAssetUnauthorized() throws Exception {
+		AssetRequestDto asset_TRY = new AssetRequestDto(1l, "TRY", new BigDecimal(500000), new BigDecimal(500000));
+		String asset_TRY_Json = objectMapper.writeValueAsString(asset_TRY);
+		mockMvc.perform(post("/assets").contentType(MediaType.APPLICATION_JSON).content(asset_TRY_Json))
+				.andExpect(status().isForbidden()).andExpect(r -> {
+					// Get the error message from the response body
+					String responseBody = r.getResponse().getErrorMessage();
+					// Assert that the error message is "Access Denied"
+					assertEquals("Access Denied", responseBody);
+				});
+
+	}
+
+	@Test
+	@Order(4)
+	public void testCreateAssetsAuthorized() throws Exception {
+		LoginUserDto userCredentials = new LoginUserDto("emineoymak@gmail.com", "password123");
 
 		String userCredentials_json = objectMapper.writeValueAsString(userCredentials);
 
@@ -161,13 +199,17 @@ public class AuthenticationControllerTest {
 		assertTrue(users.size() > 0);
 		// Create TRY assets for all customers
 		for (User user : users) {
+			AssetRequestDto asset_TRY = new AssetRequestDto(user.getId(), "TRY", new BigDecimal(500000),
+					new BigDecimal(500000));
+			String asset_TRY_Json = objectMapper.writeValueAsString(asset_TRY);
 			if (user.getRole() == UserRole.CUSTOMER) {
-				AssetRequestDto asset_TRY = new AssetRequestDto(user.getId(), "TRY", new BigDecimal(500000),
-						new BigDecimal(500000));
-				String asset_TRY_Json = objectMapper.writeValueAsString(asset_TRY);
-				mockMvc.perform(post("/assets/newAsset").header("Authorization", "Bearer " + token)
+				mockMvc.perform(post("/assets").header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON).content(asset_TRY_Json)).andExpect(status().isOk())
+						.andExpect(jsonPath("$.id").isNumber());
+			} else {
+				mockMvc.perform(post("/assets").header("Authorization", "Bearer " + token)
 						.contentType(MediaType.APPLICATION_JSON).content(asset_TRY_Json))
-						.andExpect(jsonPath("$.id").isNumber()).andReturn();
+						.andExpect(jsonPath("$.error").value("Assets can only be created for customers."));
 			}
 		}
 
@@ -181,5 +223,65 @@ public class AuthenticationControllerTest {
 			}
 		}
 
+	}
+
+	@Test
+	@Order(5)
+	public void testCreateOrder() throws Exception {
+		LoginUserDto userCredentials = new LoginUserDto("brokagetechsupport@ing.com", "password123");
+		String userCredentials_json = objectMapper.writeValueAsString(userCredentials);
+
+		MvcResult loginResult = mockMvc
+				.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(userCredentials_json))
+				.andExpect(status().isOk()).andExpect(jsonPath("token").isNotEmpty())
+				.andExpect(jsonPath("$.expiresIn").value(jwtService.getExpirationTime())).andReturn();
+
+		String token = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.token");
+		assertNotNull(token);
+
+		MvcResult mvcAllUsers = mockMvc.perform(get("/users/").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(greaterThan(0)))).andReturn();
+
+		List<User> users = new ObjectMapper().readValue(mvcAllUsers.getResponse().getContentAsString(),
+				new TypeReference<List<User>>() {
+				});
+		assertNotNull(users);
+		assertTrue(users.size() > 0);
+
+		// Let's try to create orders for all users
+		for (User user : users) {
+			OrderRequest order = new OrderRequest(user.getId(), "APL", Side.BUY, new BigDecimal(10),
+					new BigDecimal(1000));
+			String order_Json = objectMapper.writeValueAsString(order);
+			if (user.getRole() == UserRole.CUSTOMER) {
+				mockMvc.perform(post("/orders").header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON).content(order_Json)).andExpect(status().isOk())
+						.andExpect(jsonPath("$.id").isNumber());
+			} else {
+				mockMvc.perform(post("/orders").header("Authorization", "Bearer " + token)
+						.contentType(MediaType.APPLICATION_JSON).content(order_Json)).andExpect(status().isForbidden())
+						.andExpect(jsonPath("$.error").value("Orders can only be created for customers."));
+
+			}
+		}
+		
+		
+		// Let's see if all customers have PENDING orders for APL asset name (There are 3 customers.)
+		// ADMIN shouldn't have any order.
+		for (User user : users) {
+			
+			if(user.getRole() == UserRole.CUSTOMER) {
+				List<org.ing.entity.Order> orders = orderRepository.searchOrders(user.getId(), "APL", null, null);
+				assertNotNull(orders);
+				assertTrue(orders.size() > 0);
+			}
+			else {
+				List<org.ing.entity.Order> orders = orderRepository.searchOrders(user.getId(), null, null, null);
+				assertNotNull(orders);
+				assertTrue(orders.size() == 0);
+			}
+			
+		}
+		
 	}
 }

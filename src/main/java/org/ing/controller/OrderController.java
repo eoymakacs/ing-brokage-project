@@ -3,6 +3,7 @@ package org.ing.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.apache.coyote.BadRequestException;
 import org.ing.dto.OrderRequest;
 import org.ing.entity.Order;
 import org.ing.service.OrderService;
@@ -32,9 +33,10 @@ class OrderController {
 	 * 
 	 * @param orderRequest
 	 * @return
+	 * @throws BadRequestException 
 	 */
 	@PostMapping
-	public ResponseEntity<Order> createOrder(@RequestBody OrderRequest request) {
+	public ResponseEntity<Order> createOrder(@RequestBody OrderRequest request) throws BadRequestException {
 		return ResponseEntity.ok(orderService.createOrder(request.getCustomerId(), request.getAssetName(),
 				request.getSide(), request.getSize(), request.getPrice()));
 	}
@@ -44,13 +46,19 @@ class OrderController {
 	 * more filter if you want)
 	 * 
 	 * @param customerId
-	 * @param startDate
-	 * @param endDate
+	 * @param start
+	 * @param end
 	 * @return
 	 */
 	@GetMapping
 	public ResponseEntity<List<Order>> listOrders(@RequestParam Long customerId, @RequestParam LocalDateTime start,
 			@RequestParam LocalDateTime end) {
+		return ResponseEntity.ok(orderService.getOrders(customerId, start, end));
+	}
+	
+	@GetMapping("/search")
+	public ResponseEntity<List<Order>> searchOrders(@RequestParam(required = false) Long customerId, @RequestParam(required = false) String assetName, @RequestParam(required = false) LocalDateTime start,
+			@RequestParam(required = false) LocalDateTime end) {
 		return ResponseEntity.ok(orderService.getOrders(customerId, start, end));
 	}
 

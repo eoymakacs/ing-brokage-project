@@ -41,9 +41,6 @@ public class User implements UserDetails {
 	@Column(nullable = false)
 	private UserRole role; // "ADMIN" or "CUSTOMER"
 	
-	public User() {
-		
-	}
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {

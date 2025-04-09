@@ -14,12 +14,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "orders")
 public class Order {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY) // or AUTO
@@ -48,6 +50,10 @@ public class Order {
 
 	@Column(nullable = false)
 	private LocalDateTime createDate = LocalDateTime.now();
+	
+	public Order() {
+		
+	}
 
 	public Long getId() {
 		return id;

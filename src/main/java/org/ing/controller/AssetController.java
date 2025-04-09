@@ -38,7 +38,7 @@ class AssetController {
 		return ResponseEntity.ok(asset);
 	}
 
-	@PostMapping("/newAsset")
+	@PostMapping
 	public ResponseEntity<Asset> createAsset(@RequestBody AssetRequestDto assetRequestDto) {
 		Asset asset = assetService.createAsset(assetRequestDto.getCustomerId(), assetRequestDto.getAssetName(),
 				assetRequestDto.getSize(), assetRequestDto.getUsableSize());
