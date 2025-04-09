@@ -43,8 +43,8 @@ mvn test
 **Public Endpoints**
 These endpoints can be accessed without authentication:
 
-POST /auth/signup – Register a new user
-POST /auth/login – Login and receive a JWT token
+- POST /auth/signup – Register a new user
+- POST /auth/login – Login and receive a JWT token
 
 **Protected Endpoints**
 All other API endpoints require a valid JWT token in the Authorization header:
